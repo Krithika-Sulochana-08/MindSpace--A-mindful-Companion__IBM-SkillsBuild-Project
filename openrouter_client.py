@@ -12,7 +12,7 @@ class OpenRouterClient:
         )
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
         # Use a public, fully accessible model for testing
-        self.model = "mistralai/mistral-7b-instruct"
+        self.model = "mistralai/mistral-small-3.1-24b-instruct:free"
 
     def generate_response(self, user_input: str) -> str:
         if not self.api_key:
@@ -63,3 +63,4 @@ class OpenRouterClient:
 
 # Create a global instance
 openrouter_client = OpenRouterClient()
+
