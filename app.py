@@ -1,6 +1,5 @@
 import streamlit as st
 from datetime import datetime
-import plotly.express as px
 import pandas as pd
 from openrouter_client import openrouter_client
 from utils.prompts import COPING_STRATEGIES, MOOD_QUESTIONS, WELLNESS_TIPS
@@ -62,6 +61,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
 class MentalHealthCompanion:
     def __init__(self):
         self.initialize_session_state()
@@ -82,8 +82,8 @@ class MentalHealthCompanion:
         try:
             response = openrouter_client.generate_response(user_input)
             return response
-        except Exception as e:
-            return f"I apologize, but I'm having trouble connecting right now. Please check your internet connection and try again."
+        except Exception:
+            return "I'm having trouble connecting right now. Please try again later."
     
     def log_mood(self, mood, notes=""):
         """Log user's mood with auto-calculated intensity"""
@@ -112,6 +112,7 @@ class MentalHealthCompanion:
                 'timestamp': datetime.now()
             })
 
+
 def main():
     companion = MentalHealthCompanion()
     
@@ -123,7 +124,7 @@ def main():
     with st.sidebar:
         st.header("🌱 Wellness Tools")
         
-        # Simplified Mood Tracker
+        # Mood Tracker
         st.subheader("Mood Tracker")
         mood = st.select_slider("How are you feeling today?", 
                                options=["😢 Very Low", "😞 Low", "😐 Okay", "😊 Good", "🎉 Great"])
@@ -149,7 +150,7 @@ def main():
                     st.session_state.conversation_started = True
                     st.rerun()
         
-        # Resources
+        # Crisis Resources
         st.subheader("🆘 Crisis Resources (India)")
         resources = get_crisis_resources()
         st.write(f"**{resources['emergency']}**")
@@ -162,12 +163,14 @@ def main():
             st.session_state.conversation_started = False
             st.rerun()
 
-    # Main content area
+    # Main chat section
     st.header("💬 Talk with Your Companion")
     
-    # Crisis alert if needed
-    crisis_detected = any(contains_crisis_keywords(msg.get('content', '')) 
-                        for msg in st.session_state.messages if msg.get('role') == 'user')
+    # Crisis alert check
+    crisis_detected = any(
+        contains_crisis_keywords(msg.get('content', '')) 
+        for msg in st.session_state.messages if msg.get('role') == 'user'
+    )
     
     if crisis_detected:
         st.markdown("""
@@ -179,41 +182,37 @@ def main():
                 <li><strong>080-46110007</strong> - Vandrevala Foundation Helpline (24/7)</li>
                 <li><strong>9152987821</strong> - iCall Psychosocial Helpline</li>
             </ul>
-            <p>You don't have to go through this alone. Professional support is available in India.</p>
         </div>
         """, unsafe_allow_html=True)
     
-    # Chat interface - Display messages
+    # Display chat messages
     for message in st.session_state.messages:
         if message["role"] == "user":
             st.markdown(f"""
             <div class="chat-message user-message">
-                <strong>You:</strong><br>
-                {message["content"]}
+                <strong>You:</strong><br>{message["content"]}
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
             <div class="chat-message assistant-message">
-                <strong>Companion:</strong><br>
-                {message["content"]}
+                <strong>Companion:</strong><br>{message["content"]}
             </div>
             """, unsafe_allow_html=True)
     
-    # Welcome message for new conversations
+    # Welcome message for first-time users
     if not st.session_state.messages:
         st.markdown("""
         <div class="chat-message assistant-message">
             <strong>Companion:</strong><br>
-            Hello! I'm here to listen and support you. This is a safe space where you can share whatever's on your mind - 
+            Hello! I'm here to listen and support you. This is a safe space where you can share whatever's on your mind — 
             your feelings, concerns, or anything you'd like to talk about. I'm here to provide 
             compassionate, non-judgmental support.
-            <br><br>
-            <em>What would you like to talk about today?</em>
+            <br><br><em>What would you like to talk about today?</em>
         </div>
         """, unsafe_allow_html=True)
     
-    # Chat input
+    # Chat input box
     user_input = st.chat_input("Share what's on your mind...")
     
     if user_input:
@@ -230,51 +229,48 @@ def main():
             with st.spinner("💭 Companion is thinking..."):
                 response = companion.get_ai_response(user_input)
             
-            # Add assistant response
+            # Add AI response
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.rerun()
 
-    # Wellness tools below the chat
+    # Wellness tools below chat
     st.markdown("---")
     st.header("📊 Your Wellness Journey")
     
     col1, col2 = st.columns(2)
     
+    # ✅ Mood History (Graph Removed — Summary only)
     with col1:
-        # Mood history
+        st.subheader("Mood History")
         if st.session_state.mood_log:
-            st.subheader("Mood History")
-            mood_data = pd.DataFrame(st.session_state.mood_log)
-            if not mood_data.empty:
-                mood_data['timestamp'] = pd.to_datetime(mood_data['timestamp'])
-                mood_data = mood_data.set_index('timestamp')
-                
-                # Simple mood trend
-                fig = px.line(mood_data, y='intensity', 
-                             title='Your Mood Intensity Over Time',
-                             labels={'intensity': 'Mood Intensity', 'timestamp': 'Time'})
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Recent mood entries
-                st.subheader("Recent Check-ins")
-                for i, entry in enumerate(reversed(st.session_state.mood_log[-3:])):
-                    st.write(f"**{entry['mood']}** ({entry['intensity']}/10)")
-                    if entry['notes']:
-                        st.caption(f"*{entry['notes']}*")
+            num_entries = len(st.session_state.mood_log)
+            most_recent = st.session_state.mood_log[-1]
+            st.markdown(f"**Mood entries logged:** {num_entries}")
+            st.markdown(f"**Most recent:** {most_recent['mood']} ({most_recent['intensity']}/10)")
+            if most_recent.get('notes'):
+                st.caption(f"*{most_recent['notes']}*")
+            
+            st.subheader("Recent Check-ins")
+            for entry in reversed(st.session_state.mood_log[-3:]):
+                st.write(f"**{entry['mood']}** ({entry['intensity']}/10) — {entry['timestamp'].strftime('%b %d %H:%M')}")
+                if entry.get('notes'):
+                    st.caption(f"*{entry['notes']}*")
+        else:
+            st.write("No mood entries yet. Log your mood using the Mood Tracker on the left.")
     
     with col2:
-        # Used coping strategies
+        # Coping Strategies used
         if st.session_state.coping_used:
             st.subheader("Recently Used Strategies")
             for entry in reversed(st.session_state.coping_used[-3:]):
                 st.write(f"• {entry['strategy']}")
         
-        # Quick wellness tips
+        # Quick Wellness Tips
         st.subheader("💡 Quick Wellness Tips")
         for tip in WELLNESS_TIPS[:4]:
             st.markdown(f'<div class="tip-box">{tip}</div>', unsafe_allow_html=True)
         
-        # Emergency resources box
+        # Emergency resources
         st.markdown("""
         <div class="resource-box">
             <h4>🆘 Immediate Help Available (India)</h4>
@@ -288,11 +284,12 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666; font-size: 0.8rem;'>
-        <p><strong>Important Disclaimer:</strong> This AI companion is for supportive listening and mental health education only. 
-        It is not a substitute for professional medical advice, diagnosis, or treatment. 
-        If you're experiencing a mental health emergency, please contact licensed professionals immediately.</p>
+        <p><strong>Disclaimer:</strong> This AI companion offers supportive listening only. 
+        It is not a substitute for professional medical or psychological help. 
+        If you're in crisis, please contact a licensed professional or emergency services.</p>
     </div>
     """, unsafe_allow_html=True)
+
 
 if __name__ == "__main__":
     main()
